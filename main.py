@@ -102,6 +102,9 @@ if __name__ == '__main__':
     elif args.dataset == "cifar10":
         args.local_bs = 512
         args.num_users = 10
+    elif args.dataset == "danger_detection":
+        args.num_users = 2
+        args.local_bs = -1
 
  
     if args.train_baseline and args.baseline_type == "local":
@@ -110,7 +113,14 @@ if __name__ == '__main__':
         users_used = [i for i in range(args.num_users)]
 
     dataset_train, dataset_test, dict_users_train, dict_users_test = get_data(args)
-
+    # print("*"*100)
+    # print(dict_users_train)
+    # print("*"*100)
+    # print(dict_users_train[0])
+    # print("*" * 20)
+    # print(type(dict_users_train), type(dict_users_train[0]), type(dict_users_train[0][0]), type(dict_users_train[0][1]))
+    # print("*" * 20)
+    # print(len(dict_users_train))
     model = Training_all(args, logger, dataset_train, dataset_test, dict_users_train, dict_users_test, users_used = users_used)
 
     if args.auto_deploy:
