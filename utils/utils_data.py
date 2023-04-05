@@ -1,14 +1,15 @@
 # code for data prepare
 import os
+import torch
 import json
 import numpy as np
+import pandas as pd
 from torchvision import datasets, transforms
 from utils.utils_sampling import iid, noniid
+from torch.utils.data import Dataset, DataLoader
 
 
 
-trans_mnist = transforms.Compose([transforms.ToTensor(),
-                                  transforms.Normalize((0.1307,), (0.3081,))])
 trans_cifar10_train = transforms.Compose([transforms.RandomCrop(32, padding=4),
                                           transforms.RandomHorizontalFlip(),
                                           transforms.ToTensor(),
@@ -17,58 +18,8 @@ trans_cifar10_train = transforms.Compose([transforms.RandomCrop(32, padding=4),
 trans_cifar10_val = transforms.Compose([transforms.ToTensor(),
                                         transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                                              std=[0.229, 0.224, 0.225])])
-class TestParser():
-    def __init__(self):
-        # federated arguments
-        self.num_users = 4
-        self.shard_per_user = 2
-        self.target_usr = 4 # [0, 9]
-        self.log_dir = ''
 
-        # training arguments
-        self.epochs_per_valid = 100
-        self.total_hnet_epoch = 1000  # [20, 10000 ]
-        self.lr = 0.01 #0.05
-        self.total_epoch = 1 # [2000, 1]
-        self.seed = 1 # [0, 3]
-        self.solver_type = 'linear' #epo
-        self.momentum = 0.5
-        self.trainN = 2000
-        self.num_workers = 0
-        self.train_baseline = False
-        self.local_bs = 512
-        self.sample_ray = True
-        self.epochs_per_valid = 1
-        self.total_ray_epoch = 200  # [1, 1000 ]
-        self.lr_prefer = 0.01
-        self.alpha = 0.2
-        self.eps_prefer = 0.1
-        self.std = 0.1
-        self.sigma = 0.1
-
-        # learning setup arguments
-        self.gpus = 0
-        self.data_root = 'data/'
-        self.dataset = 'cifar10' # ['adult', 'cifar10','synthetic']
-        self.target_dir = 'synthetic'  # ['adult', 'cifar10']
-
-        # model structure
-        self.n_classes = 10
-        self.entropy_weight = 0.0
-        self.n_hidden = 1 #[3, 3]
-        self.embedding_dim = 5
-        self.input_dim = 20
-        self.output_dim = 2
-        self.hidden_dim = 100
-        self.spec_norm = False
-
-        self.outputs_root = 'outputs'
-        self.auto_deploy = True
-
-args = TestParser()
-import torch
-from torch.utils.data import Dataset, DataLoader
-class dataset_prediction(Dataset):
+class torch_like_dataset(Dataset):
     '''
     将传入的数据集，转成Dataset类，方面后续转入Dataloader类
     注意定义时传入的data_features,data_target必须为numpy数组
@@ -76,8 +27,11 @@ class dataset_prediction(Dataset):
 
     def __init__(self, data_features, data_target):
         self.len = len(data_features)
-        self.features = torch.from_numpy(data_features)
+        self.data = torch.from_numpy(data_features)
         self.targets = torch.from_numpy(data_target)
+        self.classes = ['', '', '']
+        self.class_to_idx = {'':0, '':1, '':2}
+        self.meta = {'filename': 'batches.meta', 'key': 'label_names', 'md5': '5ff9c542aee3614f3951f8cda6e48888'}
 
     def __getitem__(self, index):
         return self.features[index], self.target[index]
@@ -115,7 +69,7 @@ def simple_data(args):
 
     elif args.dataset == "synthetic": # generate dataset  dataset_train = [[x, y], [x, y],...,[x, y]]
                                       # dict_user_train is a dict {5:[1,2,3,...,10]}
-        args.num_users = 6
+        args.num_users = 4
         args.testN = int(0.5*args.trainN)
         v = np.random.random((args.input_dim,))
         mean = np.zeros((args.input_dim,))
@@ -155,31 +109,39 @@ def simple_data(args):
 
         return dataset_train, dataset_test, dict_users_train, dict_users_test
 
-def civil_data(args):
-    data_dir = '../DecentralizedAdaptiveLearning/data/task3/'
+def civil_data(n_classes, data_dir = '../DecentralizedAdaptiveLearning/data/task3/'):
     # train_y = np.loadtxt(data_dir+'joy_labels_for_danger_detection.csv', delimiter=",", dtype=str).astype(int)#[ids]
-    train_y = np.load(data_dir+'test_action_labels.npy')
-    dataset_train = np.load(data_dir+'train_action_imgs.npy')
-    test_y = np.load(data_dir+'test_action_labels.npy')
-    dataset_test = np.load(data_dir+'test_action_imgs.npy')
+    # data_dir = '../DecentralizedAdaptiveLearning/data/task3/'
+    train_x = np.load(data_dir+'train_action_imgs_mini.npy')
+    train_y = np.load(data_dir+'test_action_labels_mini.npy') # 1065
+    test_x = np.load(data_dir+'test_action_imgs_mini.npy')
+    test_y = np.load(data_dir+'test_action_labels_mini.npy')
+    print("train: ", train_x.shape, "class distr: ", {i: (train_y==i).mean() for i in range(n_classes)})
+    print("test : ", test_x.shape, "class distr: ", {i: (test_y == i).mean() for i in range(n_classes)})
     print("*" * 100)
 
-    dataset_train = dataset_prediction(data_features=dataset_train, data_target=train_y)
-    dataset_test = dataset_prediction(data_features=dataset_test, data_target=test_y)
+    dataset_train = [(train_x[i], train_y[i]) for i in range(len(train_y))]
+    dataset_test = [(test_x[i], test_y[i]) for i in range(len(test_y))]
+    # dataset_train = torch_like_dataset(data_features=dataset_train, data_target=train_y)
+    # dataset_test = torch_like_dataset(data_features=dataset_test, data_target=test_y)
+    return dataset_train, dataset_test
 
-
-    # sample users
-    if not args.iid:
-        dict_users_train = iid(dataset_train, args.num_users)
-        dict_users_test = iid(dataset_test, args.num_users)
+def civil_noniid(dataset,args):
+    dict_users = {}
+    if args.iid:
+        ids = np.random.randint(0, len(dataset), len(dataset))
     else:
-        dict_users_train, rand_set_all = noniid(dataset_train, args.num_users, args.shard_per_user)
-        dict_users_test, rand_set_all = noniid(dataset_test, args.num_users, args.shard_per_user,
-                                               rand_set_all=rand_set_all)
-    return dataset_train, dataset_test, dict_users_train, dict_users_test
+        ids = list(range(len(dataset)))
+    num_samples_per_usr = int(len(ids) / args.target_usr)
+    for usr in range(args.target_usr-1):
+        dict_users[usr] = ids[usr * num_samples_per_usr:(usr + 1) * num_samples_per_usr]
+    dict_users[args.target_usr-1] = ids[(usr + 1) * num_samples_per_usr:]
+    return dict_users
 
 def get_data(args):
     if args.dataset == 'mnist':
+        trans_mnist = transforms.Compose([transforms.ToTensor(),
+                                          transforms.Normalize((0.1307,), (0.3081,))])
         dataset_train = datasets.MNIST(args.data_root, train=True, download=True, transform=trans_mnist)
         dataset_test = datasets.MNIST(args.data_root, train=False, download=True, transform=trans_mnist)
         # sample users
@@ -193,62 +155,18 @@ def get_data(args):
     elif args.dataset == 'cifar10':
         dataset_train = datasets.CIFAR10(os.path.join(args.data_root, "cifar10"), train=True, download=True, transform=trans_cifar10_train)
         dataset_test = datasets.CIFAR10(os.path.join(args.data_root, "cifar10"), train=False, download=True, transform=trans_cifar10_val)
-        if args.iid:
-            dict_users_train = iid(dataset_train, args.num_users)
-            dict_users_test = iid(dataset_test, args.num_users)
-        else:
-            dict_users_train, rand_set_all = noniid(dataset_train, args.num_users, args.shard_per_user)
-            dict_users_test, rand_set_all = noniid(dataset_test, args.num_users, args.shard_per_user, rand_set_all=rand_set_all)
-
+        dict_users_train = iid(dataset_train, args.num_users)
+        dict_users_test = iid(dataset_test, args.num_users)
 
     elif args.dataset == "adult" or args.dataset == "synthetic":
         
         dataset_train, dataset_test, dict_users_train, dict_users_test = simple_data(args)
 
-    elif args.dataset == "eicu":
-        dataset_train, dataset_test, dict_users_train, dict_users_test = eicu_data(args)
+    elif args.dataset == "civil":
+        dataset_train, dataset_test = civil_data(args.n_classes)
+        dict_users_train = civil_noniid(dataset_train, args)
+        dict_users_test = civil_noniid(dataset_test, args)
 
-    elif args.dataset == "danger_detection":
-        dataset_train, dataset_test, dict_users_train, dict_users_test = civil_data(args)
     else:
         exit('Error: unrecognized dataset')
     return dataset_train, dataset_test, dict_users_train, dict_users_test
-
-
-
-
-# -*- coding: utf-8 -*-
-# File              : danger_detection/images_processing.py
-# Author            : Joy
-# Create Date       : 2022/12/16
-# Last Modified Date: 2022/12/16
-# Last Modified By  : Joy
-# Reference         : pip install -U -r requirements0706.txt --default-timeout=1000
-# Description       : 1. swim_transformer
-# ******************************************************
-import os
-import numpy as np
-
-
-def read_images(img_dir='./data/danger_detection/images/',
-                img_embedding_path='./data/danger_detection/image_embedding_for_danger_detection',
-                preprocess_modeling='MoblieNet'):
-    x = []
-
-    for f in sorted(os.listdir(img_dir), key=lambda x: int(x.split('(')[1].split(')')[0])):
-        if not os.path.exists(img_dir + f):
-            continue
-        image = cv2.imread(img_dir + f, -1)
-        print(f, ": ", image.shape)
-        x.append(cv2.resize(image, (224, 224)))
-
-    if preprocess_modeling == 'MobileViT':
-        vit = MobileVideoVit(size=256, num_classes=2)
-        image_embedding = vit(np.array(x) / 255.0)
-    print("Finished : ", image_embedding.shape)
-    np.save(img_embedding_path, np.array(image_embedding))
-    return image_embedding
-
-
-if __name__ == '__main__':
-    image_embedding = read_images()

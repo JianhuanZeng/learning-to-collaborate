@@ -1,20 +1,65 @@
 # main.py
 
-import copy
+
+import os
 import pickle
-import numpy as np
-import pandas as pd
+import argparse
 import torch
 
 from utils.utils_data import get_data
 from utils.utils_func import construct_log, get_random_dir_name, setup_seed
 from hyper_model.train import Training_all
-import os
 
-import pdb
-import argparse
-import pickle
+class TestParser():
+    def __init__(self):
+        # federated arguments
+        self.num_users = 4
+        self.shard_per_user = 2
+        self.target_usr = 2 # [0, 9]
+        self.log_dir = ''
+        self.iid = True #False
 
+        # training arguments
+        self.epochs_per_valid = 100
+        self.total_hnet_epoch = 1000  # [20, 10000 ]
+        self.lr = 0.01 #0.05
+        self.total_epoch = 1 # [2000, 1]
+        self.seed = 1 # [0, 3]
+        self.solver_type = 'linear' #epo
+        self.momentum = 0.5
+        self.trainN = 2000
+        self.num_workers = 0
+        self.train_baseline = False
+        self.local_bs = 512
+        self.sample_ray = True
+        self.epochs_per_valid = 1
+        self.total_ray_epoch = 200  # [1, 1000 ]
+        self.lr_prefer = 0.01
+        self.alpha = 0.2
+        self.eps_prefer = 0.1
+        self.std = 0.1
+        self.sigma = 0.1
+
+        # learning setup arguments
+        self.gpus = 0
+        self.data_root = 'data/'
+        self.dataset = 'civil' # ['adult', 'cifar10','synthetic']
+        self.target_dir = 'synthetic'  # ['adult', 'cifar10']
+
+        # model structure
+        self.n_classes = 10
+        self.entropy_weight = 0.0
+        self.n_hidden = 1 #[3, 3]
+        self.embedding_dim = 5
+        self.input_dim = 20
+        self.output_dim = 2
+        self.hidden_dim = 100
+        self.spec_norm = False
+
+        self.outputs_root = 'outputs'
+        self.auto_deploy = True
+
+args = TestParser()
 
 parser = argparse.ArgumentParser()
 # federated arguments
@@ -101,9 +146,11 @@ if __name__ == '__main__':
         args.local_bs = -1
     elif args.dataset == "cifar10":
         args.local_bs = 512
-        args.num_users = 10
-    elif args.dataset == "danger_detection":
-        args.num_users = 2
+        args.num_users = 3
+    elif args.dataset == "civil":
+        args.input_dim = 1280
+        args.output_dim  = 3
+        args.num_users = 4
         args.local_bs = -1
 
  
