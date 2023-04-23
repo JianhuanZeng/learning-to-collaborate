@@ -112,10 +112,10 @@ def simple_data(args):
 def civil_data(n_classes, data_dir = '../DecentralizedAdaptiveLearning/data/task3/'):
     # train_y = np.loadtxt(data_dir+'joy_labels_for_danger_detection.csv', delimiter=",", dtype=str).astype(int)#[ids]
     # data_dir = '../DecentralizedAdaptiveLearning/data/task3/'
-    train_x = np.load(data_dir+'train_action_imgs_mini.npy')
-    train_y = np.load(data_dir+'test_action_labels_mini.npy') # 1065
-    test_x = np.load(data_dir+'test_action_imgs_mini.npy')
-    test_y = np.load(data_dir+'test_action_labels_mini.npy')
+    train_x = np.load(data_dir+'train_action_imgs_vit.npy')
+    train_y = np.load(data_dir+'train_action_labels.npy') # 1065
+    test_x = np.load(data_dir+'test_action_imgs_vit.npy')
+    test_y = np.load(data_dir+'test_action_labels.npy')
     print("train: ", train_x.shape, "class distr: ", {i: (train_y==i).mean() for i in range(n_classes)})
     print("test : ", test_x.shape, "class distr: ", {i: (test_y == i).mean() for i in range(n_classes)})
     print("*" * 100)
@@ -132,10 +132,10 @@ def civil_noniid(dataset,args):
         ids = np.random.randint(0, len(dataset), len(dataset))
     else:
         ids = list(range(len(dataset)))
-    num_samples_per_usr = int(len(ids) / args.target_usr)
-    for usr in range(args.target_usr-1):
+    num_samples_per_usr = int(len(ids) / args.num_users)
+    for usr in range(args.num_users-1):
         dict_users[usr] = ids[usr * num_samples_per_usr:(usr + 1) * num_samples_per_usr]
-    dict_users[args.target_usr-1] = ids[(usr + 1) * num_samples_per_usr:]
+    dict_users[args.num_users-1] = ids[(usr + 1) * num_samples_per_usr:]
     return dict_users
 
 def get_data(args):

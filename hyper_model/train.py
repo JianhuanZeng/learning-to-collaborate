@@ -71,7 +71,7 @@ class Training_all(object):
         if users_used == None:
             users_used = [i for i in range(self.args.num_users)]
         self.users_used = users_used
-        if args.dataset == "adult" or args.dataset == "synthetic" or args.dataset == "civil":
+        if args.dataset == "adult" or args.dataset == "synthetic" or args.dataset == "civil": #
             self.hnet = HyperSimpleNet( args, self.device)
         # elif args.dataset == "eicu":
         #     if args.train_baseline:

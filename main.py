@@ -1,5 +1,5 @@
 # main.py
-
+# python main.py --dataset cifar10 --num_users 10 --target_usr 9 --total_hnet_epoch 10000 --total_ray_epoch 1000 --total_epoch 1 --seed 3 --local_bs 512 --lr 0.01 --lr_prefer 0.01 --solver_type linear --sample_ray --n_hidden 3 --embedding_dim 5 --input_dim 20 --output_dim 2 --hidden_dim 100  --gpus 0
 
 import os
 import pickle
@@ -15,19 +15,19 @@ class TestParser():
         # federated arguments
         self.num_users = 4
         self.shard_per_user = 2
-        self.target_usr = 2 # [0, 9]
+        self.target_usr = 1 # [0, 9]
         self.log_dir = ''
         self.iid = True #False
 
         # training arguments
         self.epochs_per_valid = 100
-        self.total_hnet_epoch = 1000  # [20, 10000 ]
+        self.total_hnet_epoch = 100  # [20, 10000 ]
         self.lr = 0.01 #0.05
         self.total_epoch = 1 # [2000, 1]
         self.seed = 1 # [0, 3]
-        self.solver_type = 'linear' #epo
+        self.solver_type = 'epo' #[ epo, linear]
         self.momentum = 0.5
-        self.trainN = 2000
+        self.trainN = 100
         self.num_workers = 0
         self.train_baseline = False
         self.local_bs = 512
@@ -44,22 +44,21 @@ class TestParser():
         self.gpus = 0
         self.data_root = 'data/'
         self.dataset = 'civil' # ['adult', 'cifar10','synthetic']
-        self.target_dir = 'synthetic'  # ['adult', 'cifar10']
+        self.target_dir = 'civil0405'  # ['adult', 'cifar10']
 
         # model structure
-        self.n_classes = 10
+        self.n_classes = 3
         self.entropy_weight = 0.0
         self.n_hidden = 1 #[3, 3]
         self.embedding_dim = 5
-        self.input_dim = 20
-        self.output_dim = 2
+        self.input_dim = 1280
+        self.output_dim = 3
         self.hidden_dim = 100
         self.spec_norm = False
 
         self.outputs_root = 'outputs'
         self.auto_deploy = True
 
-args = TestParser()
 
 parser = argparse.ArgumentParser()
 # federated arguments
@@ -115,7 +114,7 @@ parser.add_argument('--data_root', type=str, default='data', help="name of datas
 parser.add_argument('--outputs_root', type=str, default='outputs', help="name of dataset")
 parser.add_argument('--target_dir', type=str, default='', help=" dir name of for saving all generating data")
 args = parser.parse_args()
-
+args = TestParser()
 
 
 if __name__ == '__main__':
@@ -148,7 +147,7 @@ if __name__ == '__main__':
         args.local_bs = 512
         args.num_users = 3
     elif args.dataset == "civil":
-        args.input_dim = 1280
+        args.input_dim = 384
         args.output_dim  = 3
         args.num_users = 4
         args.local_bs = -1
@@ -183,3 +182,4 @@ if __name__ == '__main__':
         with open(os.path.join(args.log_dir, "pickle.pkl"), "wb") as f:
             pickle.dump(model.pickle_record, f)
         os.makedirs( os.path.join(args.log_dir, "done"), exist_ok = True)       
+
